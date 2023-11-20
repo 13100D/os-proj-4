@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 
-sem_t boardable_mutex, full_mutex, end_journey_mutex;
+sem_t boardable_mutex, full_mutex, end_journey_mutex,boardedcountmutex;
 int passengers_boarded = 0;
 int car_capacity;
 int total_passengers;
@@ -36,9 +36,8 @@ void* car(void* args) {
         load();
 
         // Signal passengers that the car is boardable
-        for (int i = 0; i < car_capacity && passengers_waiting > 0; ++i) {
+        for (int i = 0; i < car_capacity; ++i) {
             sem_post(&boardable_mutex);
-            passengers_waiting--;
         }
 
         // Wait until the car is full or there are no more passengers
@@ -67,8 +66,9 @@ void* passenger(void* args) {
 
         // Board the car
         board(passenger_id);
+        sem_wait(&boardedcountmutex);
         passengers_boarded++;
-
+        sem_post(&boardedcountmutex);
         // If the car is full or no more passengers are waiting, signal the car
         if (passengers_boarded == car_capacity || passengers_waiting == 0) {
             sem_post(&full_mutex);
@@ -84,11 +84,6 @@ void* passenger(void* args) {
         if (passengers_boarded == car_capacity) {
             passengers_boarded = 0;
         }
-
-        // Check if there are no more passengers to board
-        if (passengers_remaining == 0) {
-            pthread_exit(NULL);
-        }
     }
 }
 
@@ -100,13 +95,17 @@ int main() {
     sem_init(&boardable_mutex, 0, 0);
     sem_init(&full_mutex, 0, 0);
     sem_init(&end_journey_mutex, 0, 0);
-
+    sem_init(&boardedcountmutex,0,1);
     // Take car capacity and total passengers as input
     printf("Enter car capacity: ");
     scanf("%d", &car_capacity);
 
     printf("Enter total number of passengers: ");
     scanf("%d", &total_passengers);
+    if(total_passengers < car_capacity){
+        printf("Total passengers cannot be less than car capacity.\n");
+        return 0;
+    }
     pthread_t car_thread, passenger_threads[total_passengers];
     int passenger_ids[total_passengers];
     passengers_waiting = total_passengers;
