@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 
-sem_t boardable_mutex, full_mutex, end_journey_mutex, boardedcountmutex, fullyunboarded;
+sem_t boardable_mutex, end_journey_mutex, boardedcountmutex, fullyunboarded, fullyboarded; // can passenger board yet , has journey finished , can adjust boardedcount variable without interthread conflict , have all passengers unboarded , has car capacity been fully boarded
 int passengers_boarded = 0;
 int car_capacity;
 int total_passengers;
@@ -23,6 +23,9 @@ void board(int passenger_id) {
     printf("Passenger %d is boarding.\n", passenger_id);
     sem_wait(&boardedcountmutex);
     passengers_boarded++;
+    if(passengers_boarded == car_capacity){
+        sem_post(&fullyboarded);
+    }
     sem_post(&boardedcountmutex);
     sleep(1);
 }
@@ -44,7 +47,7 @@ void* car(void* args) {
         for (int i = 0; i < car_capacity; ++i) {
             sem_post(&boardable_mutex);
         }
-	sem_wait(&full_mutex);
+	sem_wait(&fullyboarded);
         printf("Car is on the ride.\n");
         sleep(2);
 	unload();
@@ -57,23 +60,17 @@ void* car(void* args) {
 
 void* passenger(void* args) {
     int passenger_id = *((int*)args);
-
     while (1) {
 	sem_wait(&boardable_mutex);
 	board(passenger_id);
-	if (passengers_boarded == car_capacity) {
-            sem_post(&full_mutex);
-        }
-        sem_wait(&end_journey_mutex);
-        offboard(passenger_id);
-
+    sem_wait(&end_journey_mutex);
+    offboard(passenger_id);
     }
 }
 
 
 int main() {
     sem_init(&boardable_mutex, 0, 0);
-    sem_init(&full_mutex, 0, 0);
     sem_init(&end_journey_mutex, 0, 0);
     sem_init(&boardedcountmutex,0,1);
     printf("Enter car capacity: ");
@@ -97,7 +94,6 @@ int main() {
     }
     pthread_join(car_thread, NULL);
     sem_destroy(&boardable_mutex);
-    sem_destroy(&full_mutex);
     sem_destroy(&end_journey_mutex);
 
     return 0;
