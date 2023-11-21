@@ -4,12 +4,10 @@
 #include <unistd.h>
 
 
-sem_t boardable_mutex, full_mutex, end_journey_mutex, boardedcountmutex, unboarded;
+sem_t boardable_mutex, full_mutex, end_journey_mutex, boardedcountmutex, fullyunboarded;
 int passengers_boarded = 0;
 int car_capacity;
 int total_passengers;
-int passengers_waiting = 0;
-int passengers_remaining = 0;
 
 void load() {
     printf("Car is loading passengers.\n");
@@ -23,12 +21,22 @@ void unload() {
 
 void board(int passenger_id) {
     printf("Passenger %d is boarding.\n", passenger_id);
+    sem_wait(&boardedcountmutex);
+    passengers_boarded++;
+    sem_post(&boardedcountmutex);
     sleep(1);
 }
 
 void offboard(int passenger_id) {
     printf("Passenger %d is getting off.\n", passenger_id);
+    sem_wait(&boardedcountmutex);
+    passengers_boarded--;
+    if(passengers_boarded == 0){
+        sem_post(&fullyunboarded);
+    }
+    sem_post(&boardedcountmutex);
     sleep(1);
+
 }
 void* car(void* args) {
     while (1) {
@@ -43,7 +51,7 @@ void* car(void* args) {
         for (int i = 0; i < car_capacity; ++i) {
             sem_post(&end_journey_mutex);
         }
-	sem_wait(&unboarded);
+	sem_wait(&fullyunboarded);
     }
 }
 
@@ -53,17 +61,12 @@ void* passenger(void* args) {
     while (1) {
 	sem_wait(&boardable_mutex);
 	board(passenger_id);
-        sem_wait(&boardedcountmutex);
-        passengers_boarded++;
-        sem_post(&boardedcountmutex);
-	if (passengers_boarded == car_capacity || passengers_waiting == 0) {
+	if (passengers_boarded == car_capacity) {
             sem_post(&full_mutex);
         }
         sem_wait(&end_journey_mutex);
         offboard(passenger_id);
-        if (passengers_boarded == car_capacity) {
-            passengers_boarded = 0;
-        }
+
     }
 }
 
@@ -84,8 +87,6 @@ int main() {
     }
     pthread_t car_thread, passenger_threads[total_passengers];
     int passenger_ids[total_passengers];
-    passengers_waiting = total_passengers;
-    passengers_remaining = total_passengers;
     pthread_create(&car_thread, NULL, car, NULL);
     for (int i = 0; i < total_passengers; ++i) {
         passenger_ids[i] = i + 1;
