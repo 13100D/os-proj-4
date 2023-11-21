@@ -58,19 +58,20 @@ int main() {
     }
 
 
-    for(int i=0; i<left_cars/max_cars; i++){
+    for (int i = 0; i < left_cars / max_cars; i++) {
         sem_wait(&bridge_avail);
         printf("--------------------\n");
-        for(int j=0; j<max_cars; j++){
-        sem_post(&left_go);
+        for (int j = 0; j < max_cars; j++) {
+            sem_post(&left_go);
         }
 
     }
-
-    sem_wait(&bridge_avail);
-    printf("--------------------\n");
-    for(int i=0; i<left_cars%max_cars; i++){
-        sem_post(&left_go);
+    if (left_cars % max_cars != 0) {
+        sem_wait(&bridge_avail);
+        printf("--------------------\n");
+        for (int i = 0; i < left_cars % max_cars; i++) {
+            sem_post(&left_go);
+        }
     }
     for(int i=0; i<right_cars/max_cars; i++){
         sem_wait(&bridge_avail);
