@@ -8,8 +8,7 @@ pthread_mutex_t eat_lock;
 int meals_eaten[5] = {0};
 
 #define MAX_MEALS 3
-// #define INITIAL_EATING 2 // Control the number of philosophers eating initially
-
+// Initial logic to solve the dining philosophers problem is taken from OSTEP Chapter 31
 void eating(int pn) {
     if (meals_eaten[pn] >= MAX_MEALS) {
         printf("Philosopher %d has reached the maximum meals.\n", pn);
