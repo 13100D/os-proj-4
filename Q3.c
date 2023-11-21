@@ -85,7 +85,6 @@ int main() {
     for(int i=0; i<right_cars%max_cars; i++){
         sem_post(&right_go);
     }
-    printf("--------------------\n");
 
     for (int i = 0; i < left_cars; ++i) {
         pthread_join(left_car_threads[i], NULL);
