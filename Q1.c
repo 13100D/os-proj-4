@@ -2,49 +2,74 @@
 #include <pthread.h>
 #include <unistd.h>
 
-
-
 pthread_mutex_t forks[5];
 pthread_mutex_t bowls;
-pthread_mutex_t eat_lock; // Mutex for controlling eating access
-pthread_cond_t can_eat[2];
-int meals_eaten[5] = {0}; // Track meals eaten by each philosopher
+pthread_mutex_t eat_lock;
+int meals_eaten[5] = {0};
 
-void eating(int philosopher_number) {
-    // Enter eating state
-    meals_eaten[philosopher_number]++; // Increment meals eaten by this philosopher
-    printf("Philosopher %d is eating (%d meals eaten)\n", philosopher_number, meals_eaten[philosopher_number]);
-    sleep(2); // Simulating eating
+#define MAX_MEALS 3
+// #define INITIAL_EATING 2 // Control the number of philosophers eating initially
+
+void eating(int pn) {
+    if (meals_eaten[pn] >= MAX_MEALS) {
+        printf("Philosopher %d has reached the maximum meals.\n", pn);
+        return;
+    }
+
+    meals_eaten[pn]++;
+    printf("Philosopher %d is eating (%d meals eaten)\n", pn, meals_eaten[pn]);
+    sleep(2);
 }
 
-void thinking(int philosopher_number) {
-    // Enter thinking state
-    printf("Philosopher %d is thinking\n", philosopher_number);
-    sleep(1); // Simulating thinking
+void thinking(int pn) {
+    printf("Philosopher %d is thinking\n", pn);
+    sleep(1);
+}
+
+int left(int pn) {
+    return pn;
+}
+
+int right(int pn) {
+    return (pn + 1) % 5;
 }
 
 void* philosopher(void* arg) {
     int philosopher_number = *((int*)arg);
-    int left_fork = philosopher_number;
-    int right_fork = (philosopher_number + 1) % 5;
+    int left_fork = left(philosopher_number);
+    int right_fork = right(philosopher_number);
+
+    thinking(philosopher_number);
+
+    pthread_mutex_lock(&forks[left_fork]);
+    pthread_mutex_lock(&forks[right_fork]);
+
+    if (philosopher_number < 3) {
+        eating(philosopher_number);
+    }
+
+    pthread_mutex_unlock(&forks[right_fork]);
+    pthread_mutex_unlock(&forks[left_fork]);
 
     while (1) {
         thinking(philosopher_number);
 
-        pthread_mutex_lock(&eat_lock); // Lock for eating access
         pthread_mutex_lock(&forks[left_fork]);
         pthread_mutex_lock(&forks[right_fork]);
-
-        pthread_mutex_unlock(&eat_lock); // Release eating lock
 
         eating(philosopher_number);
 
         pthread_mutex_unlock(&forks[right_fork]);
         pthread_mutex_unlock(&forks[left_fork]);
 
-        // Simulate a delay before the philosopher can eat again
         sleep(1);
+
+        if (meals_eaten[philosopher_number] >= MAX_MEALS) {
+            printf("Philosopher %d has reached the maximum number of meals.\n", philosopher_number);
+            break; // Break the loop if the maximum meals are reached
+        }
     }
+
     return NULL;
 }
 
@@ -53,10 +78,8 @@ int main() {
     int philosopher_numbers[5];
 
     pthread_mutex_init(&bowls, NULL);
-    pthread_mutex_init(&eat_lock, NULL); // Initialize the eating lock
     for (int i = 0; i < 5; ++i) {
         pthread_mutex_init(&forks[i], NULL);
-        pthread_cond_init(&can_eat[i], NULL);
     }
 
     for (int i = 0; i < 5; ++i) {
@@ -70,3 +93,4 @@ int main() {
 
     return 0;
 }
+
